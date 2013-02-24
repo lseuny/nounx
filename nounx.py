@@ -126,7 +126,7 @@ def get_noun_entropy(noun_postfix_dist, postfix_list):
     return noun_entropy
 
 
-def compute_noun_entropy(text_path, postfix_list, min_DF=MIN_DF):
+def compute_noun_entropy(text_path, postfix_list, min_df=MIN_DF):
     candidates = get_noun_candidate(text_path, postfix_list, min_df)
 
     noun_postfix_dist = get_noun_postfix_dist(text_path, candidates, postfix_list)
