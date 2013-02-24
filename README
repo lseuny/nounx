@@ -4,3 +4,6 @@ DESC
 USAGE
   python make_dic.py sample.txt > dic.txt
   python extract_noun.py dic.txt < sample.txt
+
+  To find new nouns and add them to the existing dictionary,
+    python make_dic.py new_sample.txt existing_dic.txt >> existing_dic.txt
