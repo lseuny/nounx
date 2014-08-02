@@ -1,9 +1,8 @@
-DESC
-  NounX is a Korean Language Noun Extractor project developed in Python.
+- Description
+    - NounX is a Korean Language Noun Extractor implemented in Python.
 
-USAGE
-  python make_dic.py sample.txt > dic.txt
-  python extract_noun.py dic.txt < sample.txt
-
-  To find new nouns and add them to the existing dictionary,
-    python make_dic.py new_sample.txt existing_dic.txt >> existing_dic.txt
+- Usage
+    1. Find additional noun candidates.
+        - ```python nounx.py sample.txt```
+    2. A sample code to extract nouns from text.
+        - ```python extract_noun.py```

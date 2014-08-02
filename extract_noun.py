@@ -1,33 +1,32 @@
-#-*- coding: utf-8 -*-
+#coding: utf8;
 
-import sys
 import nounx
+import sys
+import re
 
+sentence_ptn = re.compile(u'[.?!] ')
 
 if __name__ == '__main__':
-    print 'USAGE: python %s DIC_PATH < TEXT_PATH' % (sys.argv[0])
+    #print 'USAGE: python %s DIC_PATH < TEXT_PATH' % (sys.argv[0])
 
-    dic_path = sys.argv[1]
+	noun_extractor = nounx.NounX()
 
-    dic = nounx.load_dic(dic_path)
-    postfix_list = nounx.load_postfix()
-    postfix_ptn = nounx.make_postfix_ptn(postfix_list)
+	s = u'우리는 지난 여름에 영국을 여행하는 동안 축구 경기장에서 레알 마드리드의 경기를 보았다.'
+	print s.encode('utf8', 'ignore')
+	print '\t',
+	for n in noun_extractor.extract_noun(s):
+		print n.encode('utf8', 'ignore'),
+	print
+	print
 
-    for line in sys.stdin:
-        print line, # print original sentences
-        print '\t',
-        n_lst = nounx.extract_noun(line, dic, postfix_ptn)
-        for s in n_lst:
-            w = s.strip()
-            if len(w) < 3: continue
-            print '%s' % w,
-        print
+	f = open('sample.txt')
+	for line in f:
+		ustr = line.decode('utf8', 'ignore')
+		for s in sentence_ptn.split(ustr):
+			print s.strip().encode('utf8', 'ignore')
+			print '\t',
+			for n in noun_extractor.extract_noun(s):
+				print n.encode('utf8', 'ignore'),
+			print
+	f.close()
 
-
-'''
-s = '나는 일본에 여행을 가서 식당에서 식당 음식을 먹었다'
-
-n = nounx.extract_noun(s, dic)
-for i in n:
-	print i
-'''

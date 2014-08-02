@@ -1,158 +1,164 @@
-#-*- coding: utf-8 -*-
+#coding: utf8;
 
-import sys
+import sys, os
 import re
 import math
 
 
-# Minimum occurrence of DF(Document Frequency) of words to be a noun candidate
+# Minimum occurrence of DF(Document Frequency) of words to be a noun candidate.
 MIN_DF = 30
 
-
-#ws_ptn = re.compile(u'[\s"''.,;:/!?@()[\]]+')
 ws_ptn = re.compile(u'[^a-zA-Z0-9_ㄱ-ㅎ가-힣]+')
+#digit_ptn = re.compile(u'[\d]+')
 
 
-def load_dic(path='./dic.txt'):
-    dic = {}
-    f = open(path, 'rt')
-    for line in f:
-        lst = line.strip().split('\t')
-        if len(lst) != 2: continue
-        #if float(lst[1]) < 0: continue
-        dic[lst[0]] = float(lst[1]) ### if duplicated??
-    f.close()
-    return dic
+class NounX:
+    def __init__(self, dic_path='dic.txt', postfix_path='postfix.txt'):
+        self._dic         = None
+        self._phrase      = None
+        self._postfix_ptn = None
+
+        dic    = {}
+        phrase = {}
+        if os.path.isfile(dic_path):
+            f = open(dic_path, 'rt')
+            for line in f:
+                lst = line.strip().split('\t')
+                if len(lst) != 2:
+                    continue
+                try:
+                    noun     = lst[0].decode('utf8', 'ignore')
+                    noun_lst = noun.split(u' ')
+                    if len(noun_lst) == 2:
+                        phrase[noun_lst[0]] = noun_lst[1]
+                    else:
+                        dic[noun] = float(lst[1])
+                except:
+                    continue
+            f.close()
+        self._dic    = dic
+        self._phrase = phrase
+
+        postfix = []
+        f = open(postfix_path, 'rt')
+        for line in f:
+            if len(line.strip()) < 1:
+                continue
+            postfix.append(line.strip())
+        f.close()
+
+        postfix_re = u'(%s' % postfix[0].decode('utf8', 'ignore')
+        for s in postfix[1:]:
+            postfix_re += u'|%s' % s.decode('utf', 'ignore')
+        postfix_re += u')$'
+        self._postfix_ptn = re.compile(postfix_re)
 
 
-def load_postfix(path='./postfix.txt'):
-    postfix = []
-    f = open(path, 'rt')
-    for line in f:
-        if len(line.strip()) < 1: continue
-        postfix.append(line.strip())
-    f.close()
-    return postfix
-
-
-#def make_postfix_ptn(path='/Users/SL/Projects/lib/dic_postfix.txt'):
-def make_postfix_ptn(postfix_list):
-    postfix_re = u'(%s' % postfix_list[0].decode('utf8', 'ignore')
-    for s in postfix_list:
-        postfix_re += u'|%s' % s.decode('utf', 'ignore')
-    postfix_re += u')$'
-    return re.compile(postfix_re)
-
-
-def extract_noun(text, dic_noun, postfix_ptn):
-    noun_list = []
-    u_text = ws_ptn.sub(u' ', text.lower().decode('utf8', 'ignore'))
-    for word in u_text.split(u' '):
-        if word.endswith(u'들'):
-            word = word[:-1]
-        noun = word.encode('utf8', 'ignore')
-        if noun in dic_noun and dic_noun[noun] > 0.1:
-            noun_list.append(noun)
-            continue
-
-        m = postfix_ptn.search(word)
-        if m == None or m.start() < 2: continue
-        word = word[:m.start()]
-        if word.endswith(u'들'):
-            word = word[:-1]
-        elif word.endswith(u'에서'):
-            word = word[:-2]
-        noun = word.encode('utf8', 'ignore')
-        if noun in dic_noun and dic_noun[noun] > 0.1:
-            noun_list.append(noun)
-    return noun_list
-
-
-def get_noun_candidate(filepath, postfix_list, min_df=MIN_DF):
-    postfix_ptn = make_postfix_ptn(postfix_list)
-    digit_ptn = re.compile(u'[0-9]+')
-
-    noun_df = {}
-    f = open(filepath, 'rt')
-    for line in f:
-        u_str = ws_ptn.sub(u' ', line.lower().decode('utf8', 'ignore'))
-        noun_tf = {}
-        for word in u_str.split(u' '):
-            m = postfix_ptn.search(word)
-            if m == None or m.start() < 1: continue
-            word = word[:m.start()]
-            m = digit_ptn.search(word)
-            if m != None and m.start() >= 0: continue
+    def extract_noun(self, ustr):
+        result    = []
+        last_word = ''
+        for word in map(lambda x: x.strip(), ws_ptn.split(ustr.lower())):
             if word.endswith(u'들'):
                 word = word[:-1]
-            elif word.endswith(u'에서'):
-                word = word[:-2]
-            noun = word.encode('utf8', 'ignore')
-            if noun not in noun_tf:
-                noun_tf[noun] = 0
-            noun_tf[noun] += 1
-        for n in noun_tf.keys():
-            if n not in noun_df:
-                noun_df[n] = 0
-            noun_df[n] += 1
-    f.close()
-
-    noun_list = []
-    for n, df in noun_df.items():
-        if df < min_df:
-            continue
-        noun_list.append(n)
-    return noun_list
-
-
-def get_noun_postfix_dist(filepath, noun_list, postfix_list):
-    postfix_ptn = make_postfix_ptn(postfix_list)
-
-    noun_postfix = {}
-
-    f = open(filepath, 'rt')
-    for line in f:
-        u_str = ws_ptn.sub(u' ', line.lower().decode('utf8', 'ignore'))
-        for word in u_str.split(u' '):
-            m = postfix_ptn.search(word)
-            if m == None or m.start() < 2: continue
-            u_noun = word[:m.start()]
-            if u_noun.endswith(u'들'):
-                u_noun = u_noun[:-1]
-            elif u_noun.endswith(u'에서'):
-                u_noun = u_noun[:-2]
-            noun = u_noun.encode('utf8', 'ignore')
-            postfix = word[m.start():].encode('utf8', 'ignore')
-            if noun not in noun_list: continue
-            if postfix not in postfix_list: continue
-            if noun not in noun_postfix:
-                noun_postfix[noun] = [0] * len(postfix_list)
-            noun_postfix[noun][postfix_list.index(postfix)] += 1
-    f.close()
-    
-    return noun_postfix
+            if last_word in self._phrase and word in self._phrase[last_word]:
+                result.pop()
+                result.append('%s%s' % (last_word, word))
+                last_word = ''
+                continue
+            if self._dic.get(word, 0.0) > 0.001:
+                result.append(word)
+                last_word = word
+                continue
+            m = self._postfix_ptn.search(word)
+            if m == None or m.start() < 2:
+                continue
+            word = word[:m.start()]
+            if word.endswith(u'들'):
+                word = word[:-1]
+            if last_word in self._phrase and word in self._phrase[last_word]:
+                result.pop()
+                result.append('%s%s' % (last_word, word))
+                last_word = ''
+                continue
+            if self._dic.get(word, 0.0) > 0.001:
+                result.append(word)
+                last_word = word
+                #continue
+        return result
 
 
-def get_noun_entropy(noun_postfix_dist, postfix_list):
-    noun_entropy = {}
+    def find_new_noun(self, text_path, min_df=MIN_DF):
+        term_df      = {}
+        term_postfix = {}
+        term_entropy = {}
 
-    for noun, postfix_freq in noun_postfix_dist.items():
-        s = sum(postfix_freq)
-        e = 0.0
-        p = [0.0] * len(postfix_list)
-        for i in range(len(postfix_list)):
-            p = postfix_freq[i] * 1.0 / s
-            if p > 0.0:
-                e -= (p * math.log(p))
-        noun_entropy[noun] = e
+        f = open(text_path, 'rt')
+        for line in f: # a line is a document
+            term_tf = {} # term frequency in a docuemnt
+            ustr    = line.decode('utf8', 'ignore').lower()
+            for token in map(lambda x: x.strip(), ws_ptn.split(ustr)):
+                m = self._postfix_ptn.search(token)
+                if m == None or m.start() < 1:
+                    continue
+                term    = token[:m.start()]
+                postfix = token[m.start():]
+                #m = digit_ptn.search(word)
+                #if m != None and m.start() >= 0: continue
+                if term.endswith(u'들'):
+                    term = term[:-1]
 
-    return noun_entropy
+                if term not in term_tf:
+                    term_tf[term] = 0
+                term_tf[term] += 1
+
+                if term not in term_postfix:
+                    term_postfix[term] = {}
+                if postfix not in term_postfix[term]:
+                    term_postfix[term][postfix] = 0
+                term_postfix[term][postfix] += 1
+
+            for term in term_tf.keys():
+                if term not in term_df:
+                    term_df[term] = 0
+                term_df[term] += 1
+        f.close()
+
+        for term, df in term_df.items():
+            if df < min_df:
+                continue
+            if term in self._dic:
+                continue
+            if len(term) < 2:
+                continue
+            postfix_freq = term_postfix.get(term, {})
+            s = sum(postfix_freq.values())
+            e = 0.0
+            for postfix, freq in postfix_freq.items():
+                p = (0.0 + freq) / s
+                if p > 0.0:
+                    e -= (p * math.log(p))
+            term_entropy[term] = e
+        return term_entropy
 
 
-def compute_noun_entropy(text_path, postfix_list, min_df=MIN_DF):
-    candidates = get_noun_candidate(text_path, postfix_list, min_df)
+def main():
+    ENTROPY_THRESHOLD = 1.0
 
-    noun_postfix_dist = get_noun_postfix_dist(text_path, candidates, postfix_list)
+    if len(sys.argv) < 2:
+        print 'USAGE: python %s TEXT_PATH' % (sys.argv[0])
+        return
 
-    return get_noun_entropy(noun_postfix_dist, postfix_list)
+    text_path = sys.argv[1]
+
+    noun_extractor = NounX()
+
+    term_entropy = noun_extractor.find_new_noun(text_path)
+
+    for term, entropy in term_entropy.items():
+        if entropy > ENTROPY_THRESHOLD:
+            print '%s\t%.3f' % (term.encode('utf8', 'ignore'), entropy)
+
+
+if __name__ == '__main__':
+    main()
 
