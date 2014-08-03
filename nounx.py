@@ -8,82 +8,94 @@ import math
 # Minimum occurrence of DF(Document Frequency) of words to be a noun candidate.
 MIN_DF = 30
 
-ws_ptn = re.compile(u'[^a-zA-Z0-9_ㄱ-ㅎ가-힣]+')
-#digit_ptn = re.compile(u'[\d]+')
+ws_ptn    = re.compile(u'[^a-zA-Z0-9_ㄱ-ㅎ가-힣]+')
+digit_ptn = re.compile(u'[\d]+')
 
 
 class NounX:
     def __init__(self, dic_path='dic.txt', postfix_path='postfix.txt'):
-        self._dic         = None
-        self._phrase      = None
-        self._postfix_ptn = None
+        self._dic          = None
+        self._postfix_ptn = [None, None]
 
-        dic    = {}
-        phrase = {}
+        dic = {}
         if os.path.isfile(dic_path):
             f = open(dic_path, 'rt')
             for line in f:
-                lst = line.strip().split('\t')
+                lst = line.strip().decode('utf8', 'ignore').split(u'\t')
                 if len(lst) != 2:
                     continue
                 try:
-                    noun     = lst[0].decode('utf8', 'ignore')
-                    noun_lst = noun.split(u' ')
-                    if len(noun_lst) == 2:
-                        phrase[noun_lst[0]] = noun_lst[1]
-                    else:
-                        dic[noun] = float(lst[1])
+                    dic[lst[0]] = float(lst[1])
                 except:
                     continue
             f.close()
-        self._dic    = dic
-        self._phrase = phrase
+        self._dic = dic
 
-        postfix = []
+        postfix = [[], []]
         f = open(postfix_path, 'rt')
         for line in f:
-            if len(line.strip()) < 1:
+            lst = line.strip().decode('utf8', 'ignore').split(u'\t')
+            if len(lst) != 2:
                 continue
-            postfix.append(line.strip())
+            priority = int(lst[0]) - 1
+            postfix[priority].append(lst[1])
         f.close()
 
-        postfix_re = u'(%s' % postfix[0].decode('utf8', 'ignore')
-        for s in postfix[1:]:
-            postfix_re += u'|%s' % s.decode('utf', 'ignore')
-        postfix_re += u')$'
-        self._postfix_ptn = re.compile(postfix_re)
+        for i in xrange(2):
+            postfix_re = u'(%s' % postfix[i][0]
+            for s in postfix[i][1:]:
+                postfix_re += u'|%s' % s
+            postfix_re += u')$'
+            self._postfix_ptn[i] = re.compile(postfix_re)
 
 
-    def extract_noun(self, ustr):
-        result    = []
-        last_word = ''
-        for word in map(lambda x: x.strip(), ws_ptn.split(ustr.lower())):
-            if word.endswith(u'들'):
-                word = word[:-1]
-            if last_word in self._phrase and word in self._phrase[last_word]:
-                result.pop()
-                result.append('%s%s' % (last_word, word))
-                last_word = ''
-                continue
-            if self._dic.get(word, 0.0) > 0.001:
-                result.append(word)
-                last_word = word
-                continue
-            m = self._postfix_ptn.search(word)
-            if m == None or m.start() < 2:
-                continue
-            word = word[:m.start()]
-            if word.endswith(u'들'):
-                word = word[:-1]
-            if last_word in self._phrase and word in self._phrase[last_word]:
-                result.pop()
-                result.append('%s%s' % (last_word, word))
-                last_word = ''
-                continue
-            if self._dic.get(word, 0.0) > 0.001:
-                result.append(word)
-                last_word = word
-                #continue
+    def add_candidate(self, token, postfix, depth, term_list, postfix_list):
+        assert depth <= 2
+
+        if token not in term_list:
+            term_list.append(token) # 누들 -> 누들
+            postfix_list.append(postfix)
+
+        if token.endswith(u'들'): # 사람들 -> 사람, 누들 -> 누
+            if token[:-1] not in term_list:
+                term_list.append(token[:-1])
+                postfix_list.append(u'들')
+
+        if depth < 2:
+            m = self._postfix_ptn[depth].search(token)
+            if m != None and m.start() > 0:
+                self.add_candidate(token[:m.start()], token[m.start():], depth + 1, term_list, postfix_list)
+            elif depth < 1:
+                self.add_candidate(token[:], u'', depth + 1, term_list, postfix_list)
+
+
+    def find_possible(self, token):
+        term_list    = []
+        postfix_list = []
+        self.add_candidate(token, u'', 0, term_list, postfix_list)
+        return (term_list, postfix_list)
+
+
+    def extract_noun(self, ustr, use_phrase=True):
+        result = []
+        for token in map(lambda x: x.strip(), ws_ptn.split(ustr.lower())):
+            candidate_list, postfix_list = self.find_possible(token)
+            for candidate in candidate_list:
+                if self._dic.get(candidate, 0.0) < 0.001:
+                    continue
+                if use_phrase == True:
+                    phrase = candidate
+                    while len(result) > 0:
+                        phrase_try = u'%s%s' % (result[-1], phrase)
+                        if phrase_try not in self._dic:
+                            break
+                        phrase = phrase_try
+                        result.pop()
+                    if self._dic.get(phrase, 0.0) > 0.001:
+                        result.append(phrase)
+                else: # not use phrase
+                    result.append(candidate)
+                break
         return result
 
 
@@ -97,25 +109,31 @@ class NounX:
             term_tf = {} # term frequency in a docuemnt
             ustr    = line.decode('utf8', 'ignore').lower()
             for token in map(lambda x: x.strip(), ws_ptn.split(ustr)):
-                m = self._postfix_ptn.search(token)
-                if m == None or m.start() < 1:
+                m = digit_ptn.search(token)
+                if m != None and m.start() >= 0:
                     continue
-                term    = token[:m.start()]
-                postfix = token[m.start():]
-                #m = digit_ptn.search(word)
-                #if m != None and m.start() >= 0: continue
-                if term.endswith(u'들'):
-                    term = term[:-1]
 
-                if term not in term_tf:
-                    term_tf[term] = 0
-                term_tf[term] += 1
+                if token in self._dic:
+                    continue
 
-                if term not in term_postfix:
-                    term_postfix[term] = {}
-                if postfix not in term_postfix[term]:
-                    term_postfix[term][postfix] = 0
-                term_postfix[term][postfix] += 1
+                # "사람에게도" -> ["사람에게도", "사람에게", "사람"]
+                # "해안도로" -> ["해안도로", "해안도"]
+                term_list, postfix_list = self.find_possible(token)
+                for i in xrange(len(term_list)-1, 0, -1):
+                    term    = term_list[i]
+                    postfix = postfix_list[i]
+                    if term in self._dic:
+                        break
+
+                    if term not in term_tf:
+                        term_tf[term] = 0
+                    term_tf[term] += 1
+
+                    if term not in term_postfix:
+                        term_postfix[term] = {}
+                    if postfix not in term_postfix[term]:
+                        term_postfix[term][postfix] = 0
+                    term_postfix[term][postfix] += 1
 
             for term in term_tf.keys():
                 if term not in term_df:
@@ -134,6 +152,9 @@ class NounX:
             s = sum(postfix_freq.values())
             e = 0.0
             for postfix, freq in postfix_freq.items():
+                if freq < 3:
+                    continue
+                #print '%s\t%d\t%s' % (term.encode('utf8', 'ignore'), freq, postfix.encode('utf8', 'ignore'))
                 p = (0.0 + freq) / s
                 if p > 0.0:
                     e -= (p * math.log(p))
@@ -142,6 +163,43 @@ class NounX:
 
 
 def main():
+    noun_extractor = NounX()
+
+    '''
+    s = u'발견이라는 것은 이해하기 어렵고 설명하기도 어렵다.'
+    print s.encode('utf8', 'ignore')
+    print '\t',
+    for n in noun_extractor.extract_noun(s):
+        print n.encode('utf8', 'ignore'),
+    print
+    print
+
+    s = u'문창극 총리 후보자'
+    print s.encode('utf8', 'ignore')
+    print '\t',
+    for n in noun_extractor.extract_noun(s):
+        print n.encode('utf8', 'ignore'),
+    print
+    print
+
+    s = u'언론 손석희 앵커'
+    print s.encode('utf8', 'ignore')
+    print '\t',
+    for n in noun_extractor.extract_noun(s):
+        print n.encode('utf8', 'ignore'),
+    print
+    print'''
+    
+    
+    '''testset = [u'축구', u'사람들', u'사람에게도', u'누들', u'해안도로', u'소치스캔들']
+    for s in testset:
+        print s.encode('utf8', 'ignore')
+        print '\t',
+        term_list, postfix_list = noun_extractor.find_possible(s)
+        for i in term_list:
+            print i.encode('utf8', 'ignore'),
+        print'''
+
     ENTROPY_THRESHOLD = 1.0
 
     if len(sys.argv) < 2:
@@ -149,8 +207,6 @@ def main():
         return
 
     text_path = sys.argv[1]
-
-    noun_extractor = NounX()
 
     term_entropy = noun_extractor.find_new_noun(text_path)
 

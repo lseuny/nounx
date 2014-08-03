@@ -6,6 +6,7 @@ import re
 
 sentence_ptn = re.compile(u'[.?!] ')
 
+
 if __name__ == '__main__':
     #print 'USAGE: python %s DIC_PATH < TEXT_PATH' % (sys.argv[0])
 
@@ -19,6 +20,16 @@ if __name__ == '__main__':
 	print
 	print
 
+	s = u'발견이라는 것은 이해하기도 설명하기도 어렵다.'
+	print s.encode('utf8', 'ignore')
+	print '\t',
+	for n in noun_extractor.extract_noun(s):
+		print n.encode('utf8', 'ignore'),
+	print
+	print
+
+
+	'''
 	f = open('sample.txt')
 	for line in f:
 		ustr = line.decode('utf8', 'ignore')
@@ -29,4 +40,4 @@ if __name__ == '__main__':
 				print n.encode('utf8', 'ignore'),
 			print
 	f.close()
-
+	'''

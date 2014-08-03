@@ -6,3 +6,4 @@
         - ```python nounx.py sample.txt```
     2. A sample code to extract nouns from text.
         - ```python extract_noun.py```
+
