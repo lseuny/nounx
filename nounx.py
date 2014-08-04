@@ -14,7 +14,7 @@ digit_ptn = re.compile(u'[\d]+')
 
 class NounX:
     def __init__(self, dic_path='dic.txt', postfix_path='postfix.txt'):
-        self._dic          = None
+        self._dic         = None
         self._postfix_ptn = [None, None]
 
         dic = {}
@@ -51,6 +51,12 @@ class NounX:
 
     def add_candidate(self, token, postfix, depth, term_list, postfix_list):
         assert depth <= 2
+
+        if len(token) > 1 and token.endswith(u'에'):
+            #if token not in [u'누에', u'멍에', u'성에', u'벨기에', u'오보에', u'마로니에', u'샹들리에', u'아틀리에']
+            if token[-2] not in [u'누', u'멍', u'성', u'기', u'보', u'니', u'리', u'리']:
+                token   = token[:-1]
+                postfix = u'에' + postfix
 
         if token not in term_list:
             term_list.append(token) # 누들 -> 누들
@@ -190,15 +196,16 @@ def main():
     print
     print'''
     
-    
-    '''testset = [u'축구', u'사람들', u'사람에게도', u'누들', u'해안도로', u'소치스캔들']
+    '''
+    testset = [u'축구', u'사람들', u'사람에게도', u'누들', u'해안도로', u'스캔들', u'바람에도', u'학교에서만은']
     for s in testset:
         print s.encode('utf8', 'ignore')
         print '\t',
         term_list, postfix_list = noun_extractor.find_possible(s)
         for i in term_list:
             print i.encode('utf8', 'ignore'),
-        print'''
+        print
+    '''
 
     ENTROPY_THRESHOLD = 1.0
 
