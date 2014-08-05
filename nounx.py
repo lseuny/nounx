@@ -52,11 +52,17 @@ class NounX:
     def add_candidate(self, token, postfix, depth, term_list, postfix_list):
         assert depth <= 2
 
-        if len(token) > 1 and token.endswith(u'에'):
-            #if token not in [u'누에', u'멍에', u'성에', u'벨기에', u'오보에', u'마로니에', u'샹들리에', u'아틀리에']
-            if token[-2] not in [u'누', u'멍', u'성', u'기', u'보', u'니', u'리', u'리']:
-                token   = token[:-1]
-                postfix = u'에' + postfix
+        # 특정 조사로 끝나는 명사는 별로 없음을 이용하는 휴리스틱
+        if len(token) > 1:
+            if token.endswith(u'에'):
+                #if token not in [u'누에', u'멍에', u'성에', u'벨기에', u'오보에', u'마로니에', u'샹들리에', u'아틀리에']
+                if token[-2] not in [u'누', u'멍', u'성', u'기', u'보', u'니', u'리', u'리']:
+                    token   = token[:-1]
+                    postfix = u'에' + postfix
+            elif token.endswith(u'를'): # "겨를" 외에 또 있나?
+                if token[-2] not in [u'겨']:
+                    token   = token[:-1]
+                    postfix = u'를' + postfix
 
         if token not in term_list:
             term_list.append(token) # 누들 -> 누들
