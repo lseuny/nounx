@@ -92,6 +92,7 @@ class NounX:
         result = []
         for token in map(lambda x: x.strip(), ws_ptn.split(ustr.lower())):
             candidate_list, postfix_list = self.find_possible(token)
+            found = False
             for candidate in candidate_list:
                 if self._dic.get(candidate, 0.0) < 0.001:
                     continue
@@ -107,8 +108,11 @@ class NounX:
                         result.append(phrase)
                 else: # not use phrase
                     result.append(candidate)
+                found = True
                 break
-        return result
+            if found == False:
+                result.append(u'\t') # 알 수 없는 토큰일 때는 탭문자를 넣어서 "A \t B"가 "AB"의 프레이지로 잡히지 않게 한다. 최종 결과를 리턴할 때는 명사 리스트에서 탭문자를 제거해준다.
+        return filter(lambda x: x != u'\t', result)
 
 
     def find_new_noun(self, text_path, min_df=MIN_DF):
@@ -176,31 +180,6 @@ class NounX:
 
 def main():
     noun_extractor = NounX()
-
-    '''
-    s = u'발견이라는 것은 이해하기 어렵고 설명하기도 어렵다.'
-    print s.encode('utf8', 'ignore')
-    print '\t',
-    for n in noun_extractor.extract_noun(s):
-        print n.encode('utf8', 'ignore'),
-    print
-    print
-
-    s = u'문창극 총리 후보자'
-    print s.encode('utf8', 'ignore')
-    print '\t',
-    for n in noun_extractor.extract_noun(s):
-        print n.encode('utf8', 'ignore'),
-    print
-    print
-
-    s = u'언론 손석희 앵커'
-    print s.encode('utf8', 'ignore')
-    print '\t',
-    for n in noun_extractor.extract_noun(s):
-        print n.encode('utf8', 'ignore'),
-    print
-    print'''
     
     '''
     testset = [u'축구', u'사람들', u'사람에게도', u'누들', u'해안도로', u'스캔들', u'바람에도', u'학교에서만은']
@@ -213,19 +192,25 @@ def main():
         print
     '''
 
-    ENTROPY_THRESHOLD = 1.0
+    '''
+    sentence = [ \
+        u'우리는 지난 여름에 영국을 여행하는 동안 축구 경기장에서 레알 마드리드의 경기를 참관했다.', \
+        u'발견이라는 것은 이해하기도 설명하기도 어렵다.', \
+        u'오늘은 하루종일 너무 바뻐서 전화할 겨를도 없었다.', \
+        u'나는 나의 눈과 귀조차도 믿을 수가 없었다!', \
+        u'심사위원으로는 세계 각국의 유명한 뮤지션들이 초청되었습니다', \
+        u'전체적으로 화려함이 돋보이는 곡으로도 유명하다.', \
+        u'뿌리 깊은 나무는 강한 바람에도 흔들리지 않는다.'
+    ]
 
-    if len(sys.argv) < 2:
-        print 'USAGE: python %s TEXT_PATH' % (sys.argv[0])
-        return
-
-    text_path = sys.argv[1]
-
-    term_entropy = noun_extractor.find_new_noun(text_path)
-
-    for term, entropy in term_entropy.items():
-        if entropy > ENTROPY_THRESHOLD:
-            print '%s\t%.3f' % (term.encode('utf8', 'ignore'), entropy)
+    for s in sentence:
+        print s.encode('utf8', 'ignore')
+        print '\t',
+        for n in noun_extractor.extract_noun(s):
+            print n.encode('utf8', 'ignore'),
+        print
+        print
+    '''
 
 
 if __name__ == '__main__':
