@@ -1,20 +1,20 @@
 #coding: utf8;
 
-import sys, os
+import os
 import re
 import math
 
 
 # Minimum occurrence of DF(Document Frequency) of words to be a noun candidate.
-MIN_DF = 30
+MIN_DF = 20
 
-ws_ptn    = re.compile(u'[^a-zA-Z0-9_ㄱ-ㅎ가-힣]+')
+ws_ptn = re.compile(u'[^a-zA-Z0-9_ㄱ-ㅎ가-힣]+')
 digit_ptn = re.compile(u'[\d]+')
 
 
 class NounX:
     def __init__(self, dic_path='dic.txt', postfix_path='postfix.txt'):
-        self._dic         = None
+        self._dic = None
         self._postfix_ptn = [None, None]
 
         dic = {}
@@ -57,11 +57,11 @@ class NounX:
             if token.endswith(u'에'):
                 #if token not in [u'누에', u'멍에', u'성에', u'벨기에', u'오보에', u'마로니에', u'샹들리에', u'아틀리에']
                 if token[-2] not in [u'누', u'멍', u'성', u'기', u'보', u'니', u'리', u'리']:
-                    token   = token[:-1]
+                    token = token[:-1]
                     postfix = u'에' + postfix
             elif token.endswith(u'를'): # "겨를" 외에 또 있나?
                 if token[-2] not in [u'겨']:
-                    token   = token[:-1]
+                    token = token[:-1]
                     postfix = u'를' + postfix
 
         if token not in term_list:
@@ -76,13 +76,15 @@ class NounX:
         if depth < 2:
             m = self._postfix_ptn[depth].search(token)
             if m != None and m.start() > 0:
-                self.add_candidate(token[:m.start()], token[m.start():], depth + 1, term_list, postfix_list)
+                self.add_candidate(token[:m.start()], token[m.start():],
+                                   depth + 1, term_list, postfix_list)
             elif depth < 1:
-                self.add_candidate(token[:], u'', depth + 1, term_list, postfix_list)
+                self.add_candidate(token[:], u'', depth + 1,
+                                   term_list, postfix_list)
 
 
     def find_possible(self, token):
-        term_list    = []
+        term_list = []
         postfix_list = []
         self.add_candidate(token, u'', 0, term_list, postfix_list)
         return (term_list, postfix_list)
@@ -94,7 +96,7 @@ class NounX:
             candidate_list, postfix_list = self.find_possible(token)
             found = False
             for candidate in candidate_list:
-                if self._dic.get(candidate, 0.0) < 0.001:
+                if candidate not in self._dic:
                     continue
                 if use_phrase == True:
                     phrase = candidate
@@ -111,19 +113,21 @@ class NounX:
                 found = True
                 break
             if found == False:
-                result.append(u'\t') # 알 수 없는 토큰일 때는 탭문자를 넣어서 "A \t B"가 "AB"의 프레이지로 잡히지 않게 한다. 최종 결과를 리턴할 때는 명사 리스트에서 탭문자를 제거해준다.
+                # 알 수 없는 토큰일 때는 탭문자를 넣어서 "A \t B"가 "AB"의 프레이즈로 잡히지 않게 한다.
+                # 최종 결과를 리턴할 때는 명사 리스트에서 탭문자를 제거해준다.
+                result.append(u'\t')
         return filter(lambda x: x != u'\t', result)
 
 
     def find_new_noun(self, text_path, min_df=MIN_DF):
-        term_df      = {}
+        term_df = {}
         term_postfix = {}
         term_entropy = {}
 
         f = open(text_path, 'rt')
         for line in f: # a line is a document
             term_tf = {} # term frequency in a docuemnt
-            ustr    = line.decode('utf8', 'ignore').lower()
+            ustr = line.decode('utf8', 'ignore').lower()
             for token in map(lambda x: x.strip(), ws_ptn.split(ustr)):
                 m = digit_ptn.search(token)
                 if m != None and m.start() >= 0:
@@ -136,7 +140,7 @@ class NounX:
                 # "해안도로" -> ["해안도로", "해안도"]
                 term_list, postfix_list = self.find_possible(token)
                 for i in xrange(len(term_list)-1, 0, -1):
-                    term    = term_list[i]
+                    term = term_list[i]
                     postfix = postfix_list[i]
                     if term in self._dic:
                         break
@@ -170,7 +174,6 @@ class NounX:
             for postfix, freq in postfix_freq.items():
                 if freq < 3:
                     continue
-                #print '%s\t%d\t%s' % (term.encode('utf8', 'ignore'), freq, postfix.encode('utf8', 'ignore'))
                 p = (0.0 + freq) / s
                 if p > 0.0:
                     e -= (p * math.log(p))
@@ -180,7 +183,6 @@ class NounX:
 
 def main():
     noun_extractor = NounX()
-    
     '''
     testset = [u'축구', u'사람들', u'사람에게도', u'누들', u'해안도로', u'스캔들', u'바람에도', u'학교에서만은']
     for s in testset:
@@ -215,4 +217,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

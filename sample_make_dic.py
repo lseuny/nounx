@@ -18,7 +18,8 @@ noun_extractor = nounx.NounX()
 
 term_entropy = noun_extractor.find_new_noun(text_path)
 
-for term, entropy in term_entropy.items():
+for term in sorted(term_entropy, key=term_entropy.get, reverse=True):
+    entropy = term_entropy[term]
     if entropy > ENTROPY_THRESHOLD:
         print '%s\t%.3f' % (term.encode('utf8', 'ignore'), entropy)
 
